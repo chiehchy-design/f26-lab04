@@ -20,7 +20,17 @@ $ aws cloudformation describe-stacks --stack-name lab04-service \
 
 ### Healthy redeploy after the fix (milestone 2)
 
-<!-- filled in during milestone 2 -->
+```
+-------------------------------------------------------------------------
+|                            DescribeStacks                             |
++------------+----------------------------------------------------------+
+|  InstanceId|  i-04779dcd5b331bddb                                     |
+|  ServiceUrl|  http://ec2-54-226-240-35.compute-1.amazonaws.com:8080   |
++------------+----------------------------------------------------------+
+```
+
+- **ServiceUrl:** http://ec2-54-226-240-35.compute-1.amazonaws.com:8080
+- **InstanceId:** i-04779dcd5b331bddb
 
 ## 2. External health check
 
@@ -57,26 +67,59 @@ instance's public DNS as `ServiceUrl` and its id as `InstanceId`.
 
 ## 4. Scenario 2 diagnosis
 
+Deployed with `--parameters file://infra/params-scenario2.json`. New instance, so both
+outputs changed:
+
+```
+------------------------------------------------------------------------
+|                            DescribeStacks                            |
++------------+---------------------------------------------------------+
+|  InstanceId|  i-0537cbc6d1d5b6b74                                    |
+|  ServiceUrl|  http://ec2-54-164-3-244.compute-1.amazonaws.com:8080   |
++------------+---------------------------------------------------------+
+```
+
 **The failing curl** (command and output):
 
 ```
-
+$ curl http://ec2-54-164-3-244.compute-1.amazonaws.com:8080/api/health
+curl: (28) Connection timed out after 20005 milliseconds
 ```
 
 **The log line that told you what was wrong:**
 
-```
+Opened the instance through SSM (`i-0537cbc6d1d5b6b74`) and ran `docker ps` and
+`docker logs lab04-service`. The two outputs side by side are the diagnosis:
 
+```
+CONTAINER ID   IMAGE                                     ...  STATUS         PORTS                                       NAMES
+1c92ab06e98a   ghcr.io/cmu-17-214/lab04-service:latest   ...  Up 7 minutes   0.0.0.0:8080->8080/tcp, :::8080->8080/tcp   lab04-service
+
+lab04-service listening on 9090
 ```
 
 **What was wrong, and the fix you applied:**
 
-<!-- One or two sentences. Say what you changed and where you changed it. -->
+A port mismatch *inside* the instance, between the port the app binds and the port
+Docker forwards to it. `params-scenario2.json` sets `PortOverride` to `9090`, and the
+`UserData` script in `infra/template.yaml` passes that straight through as the
+container's `PORT` environment variable, so the app bound **9090**. But the same script hardcodes the host
+mapping as `-p ${ServicePort}:${ServicePort}`, that is `-p 8080:8080`, which is what
+`0.0.0.0:8080->8080/tcp` reports. So traffic arriving on host 8080 was forwarded to
+container port 8080, where nothing was listening, while the app sat unreachable on
+9090. 
+
+The fix was to redeploy the stack that leaves
+`PortOverride` empty so `EFFECTIVE_PORT` falls back to `ServicePort`, putting the app
+and the port mapping both on 8080. Deleted the broken stack and created it again
+rather than patching the container over the SSM session, so that the template stays an
+accurate description of what is actually deployed.
 
 **The healthy curl after the fix:**
 
 ```
-
+$ curl http://ec2-54-226-240-35.compute-1.amazonaws.com:8080/api/health
+{"status":"ok"}
 ```
 
 ## 5. Teardown proof
