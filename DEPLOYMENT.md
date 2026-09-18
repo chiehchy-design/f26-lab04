@@ -125,5 +125,26 @@ $ curl http://ec2-54-226-240-35.compute-1.amazonaws.com:8080/api/health
 ## 5. Teardown proof
 
 ```
+$ aws cloudformation delete-stack --stack-name lab04-service
+$ aws cloudformation wait stack-delete-complete --stack-name lab04-service
+(wait returned, delete complete)
+```
 
+The stack is gone — `describe-stacks` now fails, which is the cleanest proof:
+
+```
+$ aws cloudformation describe-stacks --stack-name lab04-service
+An error occurred (ValidationError) when calling the DescribeStacks operation: Stack with id lab04-service does not exist
+```
+
+The EC2 instance the stack created is terminated:
+
+```
+$ aws ec2 describe-instances --instance-ids i-04779dcd5b331bddb \
+    --query "Reservations[].Instances[].[InstanceId,State.Name]" --output table
+---------------------------------------
+|          DescribeInstances          |
++----------------------+--------------+
+|  i-04779dcd5b331bddb |  terminated  |
++----------------------+--------------+
 ```
