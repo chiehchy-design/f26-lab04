@@ -48,3 +48,8 @@ explain what got created, deploy the broken variant and diagnose it, tear it dow
 CI is configured in `.github/workflows/ci.yml`. Every push runs the service tests and
 builds the container image. GitHub disables workflows on a fresh fork, so enable
 them from the Actions tab if it asks.
+
+## Tools used
+
+- Claude Code (Anthropic), model Claude Opus 5 — used to read the CloudFormation
+  template, run the deploy/diagnose/teardown commands, and draft `DEPLOYMENT.md`.
