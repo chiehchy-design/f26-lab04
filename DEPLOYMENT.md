@@ -48,10 +48,12 @@ resolved at deploy time from a public SSM parameter rather than hardcoded.
 service) and 22 (SSH fallback), with the EC2 default of all outbound traffic, which is
 how the instance reaches the internet to install Docker and pull the image.
 
-**Glue:** a `UserData` script that runs on first boot — it installs Docker, starts the
-daemon, and runs the container with `-p 8080:8080`, passing the listen port in through
-the `PORT` environment variable. The stack then outputs the instance's public DNS as
-`ServiceUrl` and its id as `InstanceId`.
+**What starts the service:** the service itself is a prebuilt image the course
+publishes, `ghcr.io/cmu-17-214/lab04-service:latest`. What launches it is the
+template's `UserData` script, which EC2 runs once on first boot: it installs Docker,
+starts the daemon, then runs that image as a container with `-p 8080:8080` and the
+listen port passed in through the `PORT` environment variable. The stack outputs the
+instance's public DNS as `ServiceUrl` and its id as `InstanceId`.
 
 ## 4. Scenario 2 diagnosis
 
